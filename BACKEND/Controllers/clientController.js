@@ -5,20 +5,58 @@ import  Besoin from '../models/Besoin.js';
 import nodemailer from 'nodemailer';
 
 
-let clients = []; // stockage temporaire des clients
-
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: '',
-        pass: '',
+        user: 'ndongabouroupavymarwin@gmail.com',
+        pass: 'guty zxrx lunt dvls',
     },
 });
 
-export const createClient = async (req, res) => {
-    try {
-        const { nom, prenom, numeroTelephone, email, besoin } = req.body;
+const mailOptions = {
+    from: 'ndongabouroupavymarwin@gmail.com',
+    to: 'leskalpel@example.com',
+    subject: 'Test Email',
+    text: 'Ceci est un email de test envoyé avec Nodemailer.',
+};
 
+transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+        return console.log('Erreur lors de l\'envoi de l\'email:', error);
+    }
+    console.log('Email envoyé avec succès:', info.response);
+});
+
+export const createClient = async (req, res) => {
+    const { name, prenom, phone, email, socialStatus, besoin } = req.body;
+
+    const newClient = new Client({
+        name,
+        prenom,
+        phone,
+        email,
+        socialStatus,
+        besoin
+    });
+
+    try {
+        const savedClient = await newClient.save();
+        res.status(201).json(savedClient);
+    } catch (error) {
+        console.error("Erreur lors de la sauvegarde du client :", error);
+        res.status(400).json({ message: "Erreur lors de la création du client", error });
+    }
+};
+
+export const getAllClients = async (req, res) => {
+    try {
+        const clients = await Client.find(); // Récupère tous les clients
+        res.status(200).json(clients); // Renvoie les clients au format JSON
+    } catch (error) {
+        console.error('Erreur lors de la récupération des clients:', error);
+        res.status(500).json({ message: 'Erreur lors de la récupération des clients' });
+    }
+};
         
         // Simulons une liste de rendez-vous existants
 const rendezVousExistants = [
@@ -28,7 +66,7 @@ const rendezVousExistants = [
 ];
 
 // Fonction pour obtenir la prochaine date et heure disponibles
-function getNextAvailableRendezVous() {
+function getNextAvailableRendezVous() { 
   const today = new Date();
   // Commencer à partir de demain
   today.setDate(today.getDate() + 1);
@@ -69,35 +107,7 @@ if (dateRendezVous) {
   console.log('Aucune disponibilité trouvée.');
 } 
 
-
-        
-
-        const client = new Client({ nom, prenom, numeroTelephone, email, besoin });
-        await client.save();
-
-        const rendezVous = new RendezVous({
-            client: client._id,
-            dateRendezVous: dateRendezVous,
-            besoin: besoin,
-        });
-        await rendezVous.save();
-
-        // Envoi de l'email de confirmation
-        const mailOptions = {
-            from: 'your-email@gmail.com',
-            to: email,
-            subject: 'Confirmation de votre rendez-vous',
-            text: `Bonjour ${prenom},\n\nVotre rendez-vous pour ${besoin} est confirmé pour le ${dateRendezVous}.`,
-        };
-
-        await transporter.sendMail(mailOptions);
-
-        res.status(201).json({ message: 'Rendez-vous créé avec succès!', client });
-    } catch (error) {
-        res.status(500).json({ message: 'Erreur lors de la création du rendez-vous', error });
-    }
-};
-
-export default createClient;
-
+  
+  
+  
 
