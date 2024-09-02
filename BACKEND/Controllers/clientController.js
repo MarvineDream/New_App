@@ -1,53 +1,63 @@
-// controllers/clientController.js
-import Client  from '../models/Client.js';
-import RendezVous from '../models/rendez_vous.js';
-import  Besoin from '../models/Besoin.js';
+import Client from "../models/Client.Model.js";
 import nodemailer from 'nodemailer';
+
+
 
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: 'ndongabouroupavymarwin@gmail.com',
-        pass: 'guty zxrx lunt dvls',
+        pass: 'guty zxrx lunt dvls', 
     },
 });
 
-const mailOptions = {
-    from: 'ndongabouroupavymarwin@gmail.com',
-    to: 'leskalpel@example.com',
-    subject: 'Test Email',
-    text: 'Ceci est un email de test envoyé avec Nodemailer.',
-};
 
-transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-        return console.log('Erreur lors de l\'envoi de l\'email:', error);
-    }
-    console.log('Email envoyé avec succès:', info.response);
-});
-
+// Créer un nouveau client
 export const createClient = async (req, res) => {
-    const { name, prenom, phone, email, socialStatus, besoin } = req.body;
+    const { nom, prenom, phone, email, Statutsocial } = req.body;
+
+    // Vérifiez si le client existe déjà
+    const existingClient = await Client.findOne({ email });
+    if (existingClient) {
+        return res.status(400).json({ error: "Un client avec cet email existe déjà." });
+    }
 
     const newClient = new Client({
-        name,
+        nom,
         prenom,
         phone,
         email,
-        socialStatus,
-        besoin
+        Statutsocial,
     });
 
     try {
         const savedClient = await newClient.save();
-        res.status(201).json(savedClient);
+        
+        // Options de l'email
+        const mailOptions = {
+            from: 'ndongabouroupavymarwin@gmail.com',
+            to: email,
+            subject: 'Confirmation de votre inscription',
+            text: `Bonjour Mr/Mme ${nom},\n\nMerci de vous être inscrit. Voici un récapitulatif de vos informations :\n\nNom: ${nom}\nPrénom: ${prenom}\nTéléphone: ${phone}\nEmail: ${email}\nStatut social: ${Statutsocial}\n\nCordialement,\nL'équipe.`,
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.log('Erreur lors de l\'envoi de l\'email:', error);
+            } else {
+                console.log('Email envoyé avec succès:', info.response);
+            }
+        });
+
+        res.status(201).json(savedClient); // Réponse correcte
     } catch (error) {
         console.error("Erreur lors de la sauvegarde du client :", error);
         res.status(400).json({ message: "Erreur lors de la création du client", error });
     }
 };
 
+// Récupérer tous les clients
 export const getAllClients = async (req, res) => {
     try {
         const clients = await Client.find(); // Récupère tous les clients
@@ -57,57 +67,61 @@ export const getAllClients = async (req, res) => {
         res.status(500).json({ message: 'Erreur lors de la récupération des clients' });
     }
 };
-        
-        // Simulons une liste de rendez-vous existants
-const rendezVousExistants = [
-  { date: new Date('2024-08-10T10:00:00'), client: 'Client A' },
-  { date: new Date('2024-08-10T11:00:00'), client: 'Client B' },
-  { date: new Date('2024-08-11T09:00:00'), client: 'Client C' },
-];
 
-// Fonction pour obtenir la prochaine date et heure disponibles
-function getNextAvailableRendezVous() { 
-  const today = new Date();
-  // Commencer à partir de demain
-  today.setDate(today.getDate() + 1);
-  
-  // Définir les heures d'ouverture (ici : 8h à 17h)
-  const heuresOuverture = { debut: 8, fin: 17 };
-  const intervalle = 60; // Intervalle en minutes
+// Récupérer un client par ID
+export const getClientById = async (req, res) => {
+    const { id } = req.params; // Récupérer l'ID du client à partir des paramètres de la requête
 
-  for (let i = 0; i < 30; i++) { // Vérifier jusqu'à 30 jours dans le futur
-      const dateRendezVous = new Date(today);
-      dateRendezVous.setDate(today.getDate() + i);
+    try {
+        const client = await Client.findById(id);
+        if (!client) {
+            return res.status(404).json({ message: 'Client non trouvé' });
+        }
+        res.status(200).json(client);
+    } catch (error) {
+        console.error('Erreur lors de la récupération du client:', error);
+        res.status(500).json({ message: 'Erreur lors de la récupération du client' });
+    }
+};
 
-      // Vérifier les heures dans les horaires d'ouverture
-      for (let heure = heuresOuverture.debut; heure < heuresOuverture.fin; heure++) {
-          for (let minute = 0; minute < 60; minute += intervalle) {
-              const dateHeure = new Date(dateRendezVous);
-              dateHeure.setHours(heure, minute, 0, 0);
+// Mettre à jour un client par ID
+export const updateClientById = async (req, res) => {
+    const { id } = req.params; // Récupérer l'ID du client à partir des paramètres de la requête
+    const { name, prenom, phone, email, socialStatus, besoin } = req.body;
 
-              // Vérifier si cette date/heure est déjà réservée
-              const estReserve = rendezVousExistants.some(rdv => 
-                  rdv.date.getTime() === dateHeure.getTime()
-              );
+    try {
+        const updatedClient = await Client.findByIdAndUpdate(id, {
+            name,
+            prenom,
+            phone,
+            email,
+            socialStatus,
+            besoin
+        }, { new: true }); // Retourner le document mis à jour
 
-              if (!estReserve) {
-                  return dateHeure; // Retourner la première date/heure disponible
-              }
-          }
-      }
-  }
-  return null; // Si aucune disponibilité trouvée
-}
+        if (!updatedClient) {
+            return res.status(404).json({ message: 'Client non trouvé' });
+        }
 
-// Exemple d'utilisation
-const dateRendezVous = getNextAvailableRendezVous();
-if (dateRendezVous) {
-  console.log('Prochaine date et heure disponibles pour le rendez-vous :', dateRendezVous);
-} else {
-  console.log('Aucune disponibilité trouvée.');
-} 
+        res.status(200).json(updatedClient);
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour du client:', error);
+        res.status(500).json({ message: 'Erreur lors de la mise à jour du client' });
+    }
+};
 
-  
-  
-  
+// Supprimer un client par ID
+export const deleteClientById = async (req, res) => {
+    const { id } = req.params; // Récupérer l'ID du client à partir des paramètres de la requête
 
+    try {
+        const deletedClient = await Client.findByIdAndDelete(id);
+        if (!deletedClient) {
+            return res.status(404).json({ message: 'Client non trouvé' });
+        }
+        res.status(200).json({ message: 'Client supprimé avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de la suppression du client:', error);
+        res.status(500).json({ message: 'Erreur lors de la suppression du client' });
+    }
+};
